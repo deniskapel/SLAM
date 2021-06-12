@@ -1,0 +1,29 @@
+#!/bin/bash
+
+unzip dataverse_files.zip
+rm dataverse_files.zip
+rm starter_code.tar.gz
+
+# English learners speaking French
+mkdir fr_en
+tar -xvzf data_fr_en.tar.gz -C fr_en
+rm data_fr_en.tar.gz
+./codebase/awk_metadata < fr_en/fr_en.slam.20190204.train > fr_en_metadata.csv
+./codebase/awk_sessions < fr_en/fr_en.slam.20190204.train > fr_en_sessions.csv
+rm -r fr_en
+
+# English learners speaking Spanish
+mkdir es_en
+tar -xvzf data_es_en.tar.gz -C es_en
+rm data_es_en.tar.gz
+./codebase/awk_metadata < es_en/es_en.slam.20190204.train > es_en_metadata.csv
+./codebase/awk_sessions < es_en/es_en.slam.20190204.train > es_en_sessions.csv
+rm -r es_en
+
+# Spanish learners speaking English
+mkdir en_es
+tar -xvzf data_en_es.tar.gz -C en_es
+rm data_en_es.tar.gz
+./codebase/awk_metadata < en_es/en_es.slam.20190204.train > en_es_metadata.csv
+./codebase/awk_sessions < en_es/en_es.slam.20190204.train > en_es_sessions.csv
+rm -r en_es

@@ -1,0 +1,13 @@
+#!/bin/awk -f
+
+BEGIN {OFS="\t"};
+    # extract sessions only
+    { if( !($2 ~ /user/) && !($2 ~ /prompt/) && !(NF == 0) )
+        {
+            session_id = substr($1, 0, length($1)-4);
+            session_task_id = substr($1, length($1)-3, 2);
+            task_token_id = substr($1, length($1)-1, 2);
+
+            print $1, session_id, session_task_id, task_token_id, $2, $3, $4, $5, $6, $7
+            }
+    }

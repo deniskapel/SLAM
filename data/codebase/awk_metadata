@@ -1,0 +1,38 @@
+#!/bin/awk -f
+
+
+BEGIN { # initialize variables to extract
+        row =""; prompt = 0; session_id=0; n_tokens = 0; n_errors=0; OFS="\t"};
+
+{
+    # if empty line, print out all the variables and reset them
+    if(NF == 0)
+        {# print out the data in the desired format
+        print user_id, country, days,
+        client, session_type, format, time,
+        session_id, n_tokens, n_errors, prompt;
+
+        prompt = 0; session_id=0; exercise_id = 0; n_tokens = 0; n_errors=0;}
+    else {
+        # extract metadata about users and sessions
+        if($2 ~ /user/) {
+            user_id = substr($2, 6, length($2));
+            country = substr($3, 11, length($3));
+            days = substr($4, 6, length($4));
+            client = substr($5, 8, length($5));
+            session_type = substr($6, 9, length($6));
+            format = substr($7, 8, length($7));
+            time = substr($8, 6, length($8));
+
+        } else {
+            #if line belong to a session data
+            if($2 ~ /prompt/){prompt = substr($0, 10, length($0))}
+            else {
+                # extract session_id, calc tokens and errors in a session
+                session_id = substr($1, 0, length($1)-4);
+                n_tokens++;
+                if($7=1) {n_errors++}
+            }
+        }
+    }
+}
