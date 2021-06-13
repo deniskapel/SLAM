@@ -29,9 +29,9 @@ BEGIN { # initialize variables to extract
             if($2 ~ /prompt/){prompt = substr($0, 10, length($0))}
             else {
                 # extract session_id, calc tokens and errors in a session
-                session_id = substr($1, 0, length($1)-4);
+                session_id = substr($1, 0, length($1)-2);
                 n_tokens++;
-                if($7=1) {n_errors++}
+                if($7 == 1) {n_errors++}
             }
         }
     }

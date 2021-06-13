@@ -1,4 +1,4 @@
-# Data preparation stage
+# Data preparation
 
 The project uses the data from a challenge on Second Language Acquisition Modeling<sup>1</sup> organised by Duolingo AI in conjunction with the 13th BEA Workshop and NAACL-HLT 2018 conference. The challenge disription is availalbe on its [official web page](http://sharedtask.duolingo.com/2018). This project is aimed to explore if any available or synthesised feature can be used to predict potential errors.
 
@@ -13,7 +13,7 @@ use the following instructions.
     ./preprocess_data
 ```
 
-NB: Check if `awk_metadata`, `awk_sessions` and `preprocess_data` files are executable. If no, run `chmod +x <fileName>` and re-run Step 2
+NB: Check if `codebase/awk_metadata`, `codebase/awk_sessions` and `preprocess_data` files are executable. If not, run `chmod +x <fileName>` and re-run Step 2
 
 
 Only `train` split is being analysed using the Null Hypothesis Significance Testing framework, `dev` and `test` are removed.

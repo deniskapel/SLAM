@@ -1,4 +1,4 @@
-# This is the project for the `Linguistic Data: Quantitative Analysis and Visualisation: computational linguistics` course.
+# This is the project for the Linguistic Data: Quantitative Analysis and Visualisation: computational linguistics course.
 
 The project is aimed to analyse the data collected for the [2018 Duolingo Shared Task on Second Language Acquisition Modeling (SLAM)](http://sharedtask.duolingo.com/2018) challenge organised by Duolingo AI in conjunction with the 13th BEA Workshop and NAACL-HLT 2018 conference. One of the key findings of the challenge was the fact that a choice of a learning algorithm (for the task) appears to be more important than clever feature engineering.
 

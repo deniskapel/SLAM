@@ -1,0 +1,347 @@
+---
+title: "Predicting Errors with Second Language Acquisition Modeling"
+author: "Denis Kapelyushnik^[HSE University, dmkapelyushnik@edu.hse.ru]"
+abstract: "In 2018, a challenge on Second Language Acquisition Modeling was organised by Duolingo AI in conjunction with the 13th BEA Workshop and NAACL-HLT 2018 conference. One of the key findings of the challenge was the fact that a choice of a learning algorithm (for the task) appears to be more important than clever feature engineering. This research paper for the Linguistic Data: Quantitative Analysis and Visualisation course is aimed to explore if any available or synthesised feature can be used to predict potential errors. The Null Hypothesis Significance Testing framework will be used for analysis."
+bibliography: references.bib
+output:
+  pdf_document: default
+  bibliography: default
+---
+
+```{r, echo=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE, results='hide')
+```
+
+```{r, echo=FALSE}
+library(tidyverse)
+library(patchwork)
+library(psych)
+```
+
+## 1. Metadata
+
+The dataset used for this paper comes from @slam18. To 7M words produced by more than 6k learners of English, Spanish, and French using Duolingo, an online language-learning app, were collected for the Second Language Acquisition Modeling (SLAM) task. The more detailed task description and results achieved by contestants are available on the official task page^[http://sharedtask.duolingo.com/2018].
+
+Only `train` splits prepared by @DVN/8SWHNO_2018 were used in this project. A dataset per language pair was split into two files^[ To reproduce this paper, follow the instructions specified in the data folder of the [project github repository](https://github.com/deniskapel/SLAM/tree/main/data).], e.g. `fr_en_metadata.csv` and `fr_en_sessions.csv`. 
+
+The data for this task are organized into language pairs: `es_en` — Spanish learners (who already speak English), and `fr_en` — French learners (who already speak English). The `en_es` part — English learners (who already speak Spanish) - is not included into this project, 
+
+Both `*_metadata.csv` and `*_sessions.csv` contain data separated by tabs (no headers):
+
+``` {r, echo=FALSE, results='markup'}
+cols_md = c('user_id', 'country', 'days', 'client',
+            'session', 'format', 'time', 'session_id',
+            'n_tokens', 'n_errors', 'prompt')
+col_types_md = cols('f','f','d','f','f','f','i','f','i', 'i', 'f')
+
+es_en_md <- read_tsv("data/es_en_metadata.csv", 
+                     col_names = cols_md,
+                     col_types = col_types_md)
+
+fr_en_md <- read_tsv("data/fr_en_metadata.csv", 
+                     col_names = cols_md,
+                     col_types = col_types_md)
+
+data_description_md <- c(
+  'generated during data anonimisation',
+  'a 2-character country code',
+  'day of usage (a double)',
+  'android, ios, or web',
+  'lesson, practice, or test',
+  'reverse_translate, reverse_tap, or listen',
+  'duration of the answer in seconds',
+  'use it to join metadata and sessions',
+  'a number of tokens used in the task',
+  'a number of errors a user made',
+  'prompt (no prompt in listening)'
+)
+
+knitr::kable(data.frame(cols_md, data_description_md),
+             col.names = c("Column name", 'Description'),
+             align = c('l','l'),
+             caption = "Content of the *_metada.csv files")
+```
+
+``` {r, echo=FALSE, results='markup'}
+cols_ses = c('session_id', 
+             'task_token_id', 'token', 'POS', 
+             'morph', 'ud_edge_label', 
+             'ud_edge_head', 'label')
+
+col_types_ses = cols('f','i','f','f','c','f','f','i')
+
+es_en_sessions <- read_tsv("data/es_en_sessions.csv", 
+                     col_names = cols_ses,
+                     col_types = col_types_ses)
+
+fr_en_sessions <- read_tsv("data/fr_en_sessions.csv", 
+                     col_names = cols_ses,
+                     col_types = col_types_ses)
+
+data_description_ses <- c(
+  'unique ID for a sesssion',
+  'location of a token in a task','word','part of speech in UD format',
+  'morphological features in UD format','dependency edge label in UD format',
+  'dependency edge head in UD format',
+  'to be predicted (0 or 1)'
+)
+
+knitr::kable(data.frame(cols_ses, data_description_ses),
+             col.names = c("Column name", 'Description'),
+             align = c('l','l'),
+             caption = "Content of the *_sessions.csv files")
+```
+
+
+## 2. Descriptive statistics
+
+**Countries**
+
+Overall, there more than 100 locations where people use the app. As the number of users can differ significantly, it was decided to limit the number of countries - only USA, Canada and Great Britain are used for this project.
+
+```{r, fig.height=5, fig.width=10}
+fr_top3 <- fr_en_md %>% 
+  select(country, user_id) %>% 
+  group_by(country) %>% 
+  summarise(n_users = n()) %>% 
+  slice_max(n_users, n=3)
+
+es_top3 <- es_en_md %>% 
+  select(country, user_id) %>% 
+  group_by(country) %>% 
+  summarise(n_users = n()) %>% 
+  slice_max(n_users, n=3)
+
+
+fr_users <- fr_top3 %>% 
+  ggplot()+
+  geom_col(aes(x=country, y=n_users / 100)) +
+  labs(title = "Top 3 most represented countries",
+       x = "",
+       y = "")+
+  theme_minimal()
+
+es_users <- es_top3 %>% 
+  ggplot()+
+  geom_col(aes(x=country, y=n_users / 100)) +
+  labs(caption = "Number of users - 1:100 Scale",
+       x="", y="")+
+  theme_minimal()
+
+fr_errors_by_country <- fr_en_md %>% 
+  select(n_errors, country, user_id) %>% 
+  group_by(country, user_id) %>% 
+  summarise(avg_errors = mean(n_errors) * 100) %>% 
+  filter(country %in% fr_top3$country) %>% 
+  ggplot()+
+  geom_boxplot(aes(x=country, y=avg_errors, group=country))+
+  labs(title="Averaged error rate", 
+       y = "",
+       x = "",
+       caption='French-speaking users')+
+  theme_minimal()
+
+es_errors_by_country <- es_en_md %>% 
+  select(n_errors, country, user_id) %>% 
+  group_by(country, user_id) %>% 
+  summarise(avg_errors = mean(n_errors) * 100) %>% 
+  filter(country %in% es_top3$country) %>% 
+  ggplot()+
+  geom_boxplot(aes(x=country, y=avg_errors, group=country))+
+  labs(y = "",
+       x = "",
+       caption='English-speaking users')+
+  theme_minimal()
+  
+
+(fr_errors_by_country +  fr_users) /  (es_errors_by_country + es_users)
+```
+
+
+```{r, echo=FALSE}
+# filter the dataset to top 3 countries
+
+es_en_md <- es_en_md %>% 
+  filter(country %in% es_top3$country)
+
+es_en_sessions <- es_en_sessions %>% 
+  filter(session_id %in% es_en_md$session_id)
+
+
+fr_en_md <- fr_en_md %>% 
+  filter(country %in% fr_top3$country)
+
+fr_en_sessions <- fr_en_sessions %>% 
+  filter(session_id %in% fr_en_md$session_id)
+
+fr_en_md %>% 
+  select(session_id) %>% 
+  distinct() %>% 
+  count() == (
+    fr_en_sessions %>% 
+  select(session_id) %>% 
+  distinct() %>% 
+  count())
+
+es_en_md %>% 
+  select(session_id) %>% 
+  distinct() %>% 
+  count() == (
+    es_en_sessions %>% 
+  select(session_id) %>% 
+  distinct() %>% 
+  count())
+```
+
+**Tasks**
+
+The data is collected for a 30-day period, during which users engaged in different formats of the tasks, namely `listen` (listen and translate into the source language), `reverse_tap` (order given tokens) and `reverse_translate` (read and translate into the source language). Only `listen` and `reverse_translate` tasks require typing thus they are more prone to errors^[Indeed, minimal edit distance is used to accept mistyping but it depends on a token, e.g. *you* will not be accepted for *your* even if edit distance is 1]. 
+
+```{r, echo=FALSE, results='markup'}
+es_en_md %>% 
+  select(format, n_errors) %>%
+  group_by(format) %>% 
+  summarize(avg_error = mean(n_errors)) %>% 
+  inner_join(fr_en_md %>%
+              select(format, n_errors) %>%
+              group_by(format) %>% 
+              summarize(avg_error = mean(n_errors)), by="format") %>%
+  knitr::kable(caption = "Average Error Rate",
+               col.names = c("Task Type",
+                             "Spanish",
+                             "French"))
+```
+
+A task can contain from 1 to 14 tokens (depending on the language). All UD features were retrieved by @slam18 using the Google SyntaxNet dependency parser and the language-agnostic Universal Dependencies tagset^[Parse errors may occur.].
+
+```{r, fig.width=10, fig.height=5}
+pos_to_err_fr <- fr_en_sessions %>% 
+  select(POS, label) %>%
+  table()
+
+pos_to_err_fr <- as.data.frame(pos_to_err_fr[,2] / (pos_to_err_fr[,1] + pos_to_err_fr[,2]))
+colnames(pos_to_err_fr)[1] <- "error_rate"
+pos_to_err_fr <- cbind(POS = as.factor(rownames(pos_to_err_fr)), pos_to_err_fr)
+rownames(pos_to_err_fr) <- 1:nrow(pos_to_err_fr)
+
+
+pos_to_err_es <- es_en_sessions %>% 
+  select(POS, label) %>%
+  table()
+
+pos_to_err_es <- as.data.frame(pos_to_err_es[,2] / (pos_to_err_es[,1] + pos_to_err_es[,2]))
+colnames(pos_to_err_es)[1] <- "error_rate"
+pos_to_err_es <- cbind(POS = as.factor(rownames(pos_to_err_es)), pos_to_err_es)
+rownames(pos_to_err_es) <- 1:nrow(pos_to_err_es)
+
+
+pos_to_err_fr <- pos_to_err_fr %>%
+  filter(!POS %in% c('X', 'PUNCT')) %>%
+  arrange(desc(error_rate)) %>% 
+  ggplot()+
+  geom_col(aes(x=POS, y=error_rate)) +
+  labs(title = 'Proportion of incorrectly inserted tokens to their total number of occurances',
+       x = "", y="", caption="French-speaking users")+
+  theme_minimal()
+
+pos_to_err_es <- pos_to_err_es %>%
+  filter(!POS %in% c('X', 'SYM')) %>%
+  arrange(desc(error_rate)) %>% 
+  ggplot()+
+  geom_col(aes(x=POS, y=error_rate)) +
+  labs(title = '', x = "Part of Speach", y="", caption="Spanish-speaking users")+
+  theme_minimal()
+
+pos_to_err_fr / pos_to_err_es
+```
+
+In the `fr_en` dataset, `PUNCT` and `X` tokens have the largest error_rate. It was excluded from the graph as the former refers to `-` in constructions like `Qui sont-ils?` and the latter mostly to `t` in consruction like `Qu'a-t-il?`.  In both cases, error refers to the `-` character. The app does not penalise users for absence of punctuation marks, so they may just skip it thus "making a mistake". These mistakes mostly come from `reverse_tap` tasks, which does not assume any typing at all. It is a tagging or user-interface issue rather than a mistake that happend while learning a language^[These mistakes will be excluded from any analysis].
+
+```{r, echo=FALSE, results='markup'}
+fr_en_md %>% 
+  select(session_id, format) %>% 
+  right_join(fr_en_sessions %>% 
+              filter(POS == 'PUNCT' & label == 1) %>% 
+              select(session_id) %>% distinct(), by='session_id') %>% 
+  select(format) %>% 
+  table() %>% 
+  knitr::kable(col.names = c('Format', 'Number of Errors'),
+               caption='Distribution of Errors Tagged as PUNCT by Task Format')
+```
+
+The Spanish part of the graph does no include `SYM` and `X` tokens as the former occurs only once and the latter mostly is a `Sí` token and is rarely a mistake.
+
+Both datasets have two distinct groups of tokens with a largest number of errors. For the French-English language pair, they are `ADP` and `SCONJ`. For the Spanish-English language pair, they are `SCONJ` and `ADJ`. In the next part of the project, I will explore if any particular feature may help to predict an error during SLA.
+
+## 3. NHST
+
+Let's analyse if any particular feature The following script is used to separate morphological features in the `morph` column:
+
+
+```{r}
+fr_en_sessions %>%
+  filter(POS=='ADP') %>% 
+  separate_rows(morph, sep = "\\|") %>%
+  separate(morph, into = c("feature", "value"), sep = "=")
+```
+
+
+**Errors**
+
+There are much more samples with 0 errors than with any number of mistakes altogether. Below its visualisation, regular and scaled using log10.
+
+```{r}
+# es_scaled <- ggplot(data=es_en_md, aes(x=n_errors))+
+#   geom_histogram(breaks=seq(0, 14, by=1), 
+#                  col="blue")+
+#   scale_y_log10()+
+#   labs(cpation='Log10 N users', x="", y="")+
+#   theme_minimal()
+# 
+# es_reg <- ggplot(data=es_en_md, aes(x=n_errors))+
+#   geom_histogram(breaks=seq(0, 14, by=1), 
+#                  col="blue")+
+#   labs(title='Spanish-speaking users', x="", y="")
+#   theme_minimal()
+# 
+# fr_scaled <- ggplot(data=fr_en_md, aes(x=n_errors))+
+#   geom_histogram(breaks=seq(0, 14, by=1), 
+#                  col="blue")+
+#   scale_y_log10()+
+#   labs(cpation='N users', x="", y="")
+#   theme_minimal()
+# 
+# fr_reg <- ggplot(data=fr_en_md, aes(x=n_errors))+
+#   geom_histogram(breaks=seq(0, 14, by=1), 
+#                  col="blue")+
+#   labs(title='French-speaking users', x="", y="")
+#   theme_minimal()
+#   
+# (fr_reg +  fr_scaled) / (es_reg + es_scaled)
+```
+
+The number of errors is connected with the length of a task - there are even samples where all tokens were inserted incorrectly. The more interesting to know if any of the task formats is more difficult than the other.
+
+```{r, echo=TRUE, results}
+# es_en_md %>%
+#   select(format, n_errors) %>% 
+#   group_by(format) %>% 
+#   summary()
+```
+Very moderate positive correlation coefficients and a very small p-value are observed, so we can reject a null hypothesis and safely assume that there is a higher chance to make a mistakes in longer sentences. The plot is two visualize it.
+
+```{r}
+# es_model <- lm(n_errors~n_tokens, data = es_en_md)
+# summary(es_model)
+# fr_model <- lm(n_errors~n_tokens, data = fr_en_md)
+# summary(fr_model)
+```
+
+```{r}
+
+```
+
+
+Rejection
+
+## References
