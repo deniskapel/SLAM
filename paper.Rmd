@@ -12,10 +12,10 @@ output:
 knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE, results='hide')
 ```
 
-```{r, echo=FALSE}
+```{r}
 library(tidyverse)
 library(patchwork)
-library(psych)
+library(BayesFactor)
 ```
 
 ## 1. Metadata
@@ -28,7 +28,7 @@ The data for this task are organized into language pairs: `es_en` — Spanish le
 
 Both `*_metadata.csv` and `*_sessions.csv` contain data separated by tabs (no headers):
 
-``` {r, echo=FALSE, results='markup'}
+``` {r, results='markup'}
 cols_md = c('user_id', 'country', 'days', 'client',
             'session', 'format', 'time', 'session_id',
             'n_tokens', 'n_errors', 'prompt')
@@ -158,7 +158,7 @@ es_errors_by_country <- es_en_md %>%
 ```
 
 
-```{r, echo=FALSE}
+```{r}
 # filter the dataset to top 3 countries
 
 es_en_md <- es_en_md %>% 
@@ -195,9 +195,9 @@ es_en_md %>%
 
 **Tasks**
 
-The data is collected for a 30-day period, during which users engaged in different formats of the tasks, namely `listen` (listen and translate into the source language), `reverse_tap` (order given tokens) and `reverse_translate` (read and translate into the source language). Only `listen` and `reverse_translate` tasks require typing thus they are more prone to errors^[Indeed, minimal edit distance is used to accept mistyping but it depends on a token, e.g. *you* will not be accepted for *your* even if edit distance is 1]. 
+The data is collected for a 30-day period, during which users engaged in different formats of the tasks, namely `listen` (listen and translate into the source language), `reverse_tap` (drag tokens in a correct order) and `reverse_translate` (read and translate into the source language). Only `listen` and `reverse_translate` tasks require typing thus they are more prone to errors^[Indeed, minimal edit distance is used to handle mistyping but it depends on a token, e.g. *you* will not be accepted for *your* even if edit distance is only 1]. 
 
-```{r, echo=FALSE, results='markup'}
+```{r, results='markup'}
 es_en_md %>% 
   select(format, n_errors) %>%
   group_by(format) %>% 
@@ -212,7 +212,7 @@ es_en_md %>%
                              "French"))
 ```
 
-A task can contain from 1 to 14 tokens (depending on the language). All UD features were retrieved by @slam18 using the Google SyntaxNet dependency parser and the language-agnostic Universal Dependencies tagset^[Parse errors may occur.].
+A task can contain from 1 to 14 tokens (depending on the language). Each token has a set of features assigned to it by @slam18 using the Google SyntaxNet dependency parser and the language-agnostic Universal Dependencies tagset^[Parse errors may occur.].
 
 ```{r, fig.width=10, fig.height=5}
 pos_to_err_fr <- fr_en_sessions %>% 
@@ -255,9 +255,9 @@ pos_to_err_es <- pos_to_err_es %>%
 pos_to_err_fr / pos_to_err_es
 ```
 
-In the `fr_en` dataset, `PUNCT` and `X` tokens have the largest error_rate. It was excluded from the graph as the former refers to `-` in constructions like `Qui sont-ils?` and the latter mostly to `t` in consruction like `Qu'a-t-il?`.  In both cases, error refers to the `-` character. The app does not penalise users for absence of punctuation marks, so they may just skip it thus "making a mistake". These mistakes mostly come from `reverse_tap` tasks, which does not assume any typing at all. It is a tagging or user-interface issue rather than a mistake that happend while learning a language^[These mistakes will be excluded from any analysis].
+In the `fr_en` dataset, `PUNCT` and `X` tokens have the largest error_rate. It was excluded from the graph as the former refers to `-` in constructions like `Qui sont-ils?` and the latter mostly to `t` in consruction like `Qu'a-t-il?`.  In both cases, error refers to the `-` character in a question. In general, the app does not penalise users for absence of punctuation marks, so they may just skip it thus "making a mistake". 
 
-```{r, echo=FALSE, results='markup'}
+```{r, results='markup'}
 fr_en_md %>% 
   select(session_id, format) %>% 
   right_join(fr_en_sessions %>% 
@@ -269,20 +269,212 @@ fr_en_md %>%
                caption='Distribution of Errors Tagged as PUNCT by Task Format')
 ```
 
-The Spanish part of the graph does no include `SYM` and `X` tokens as the former occurs only once and the latter mostly is a `Sí` token and is rarely a mistake.
+Another option is that this mistakes refers to word order issues. Some evidence for it comes from the fact these mistakes are mostly happen in `reverse_tap` tasks, which does not assume any typing at all. It is difficult to decide if it is a user-interface issue or a `real` mistake without seeing the actual user input thus no further exploration is possible.
+
+The Spanish part of the graph does no include `SYM` and `X` tokens as the former occurs only once and the latter - a `Sí` token which is rarely put incorrectly.
 
 Both datasets have two distinct groups of tokens with a largest number of errors. For the French-English language pair, they are `ADP` and `SCONJ`. For the Spanish-English language pair, they are `SCONJ` and `ADJ`. In the next part of the project, I will explore if any particular feature may help to predict an error during SLA.
 
-## 3. NHST
+## 3. Exploring most common mistakes
+
+**French-speaking learners**
+
+The most "erroneous" token with the `ADP` tag is a preposition `de`. There are three variants of its spelling in Top 5 most common mistakes. 
+
+```{r, results='markup'}
+fr_en_sessions %>%
+  select(POS, token, label) %>% 
+  filter(POS %in% c('ADP') & label == 1) %>% 
+  group_by(token) %>%
+  summarise(counter = n()) %>% 
+  slice_max(counter, n=10) %>% 
+  knitr::kable(caption = 'Most common mistakes for the ADP tag',
+               col.names = c('Token', 'Quantity'))
+```
+
+It is quite unexpected, the two out of three variants refer to the the beginning of the sentence: `De` and `D'`. Apparently, it refers more to some labeling artifacts or a simple carelessness and does not deserve much attention. In these case, only `de`, `a`, `avec`, `en`, `chez`, `pour` will be explored more in-depth.
+
+```{r}
+extract_trigrams <- function(df, token_ids) {
+  # return a matrix of trigrams with token_ids being in the centre 
+  output <- cbind(
+      as.matrix(df)[cbind(1:nrow(df), token_ids-1)],
+      as.matrix(df)[cbind(1:nrow(df), token_ids)],
+      as.matrix(df)[cbind(1:nrow(df), token_ids+1)])
+  
+    return(
+      as.tibble(output) %>% 
+        rename(previous = V1, token=V2, following=V3)
+      )
+}
+```
+
+```{r}
+# extract trigrams from sentences where there are such these prepositions
+sessions <- fr_en_sessions %>% 
+  filter(POS == 'ADP' & token %in% c("a", 'de', 'avec', 'en', "chez", 'pour')) %>% 
+  select(session_id, task_token_id, label)
+
+# some sentences have two mistakes, but will look only the first one.
+sessions <- sessions[!duplicated(sessions$session_id),]
+
+by_pos <- fr_en_sessions %>% 
+  select(session_id, task_token_id, POS) %>% 
+  filter(session_id %in% sessions$session_id) %>% 
+  pivot_wider(names_from = "task_token_id",
+              values_from = "POS")
+
+pos2labels <- sessions %>% 
+  select(session_id, label) %>% 
+  cbind(
+    extract_trigrams(
+      by_pos %>% 
+        select(!session_id),
+      sessions$task_token_id)
+    )
+```
+
+```{r, fig.height=4, fig.width=10}
+pos2labels %>% 
+  select(label, previous) %>% 
+  mutate(error = ifelse(label == 1, "Mistake", 'Correct')) %>% 
+  ggplot(aes(y=previous))+
+  geom_bar(aes(fill = error), position = position_stack(reverse = TRUE)) +
+  scale_fill_manual("legend", values = c("Mistake" = "grey34", "Correct" = "grey"))+
+  theme(legend.position = "top") + 
+  labs(title = 'Proportion of mistakes for ADP token based on PoS of a previous token',
+       x="", y="", caption = "ADP of this graph: a, de, avec, en, chez, pour")+
+  theme_minimal()
+```
+There is a significant share of errors if a preposition goes after `ADJ`, `VERB` and `NOUN`. It might be useful to use features of these tokens to predict with logistic regression. All of them share the `Gender` features, so let's test if these feature correlates with errors.
+
+1. Chi^2 test for `Gender` feature in `ADJ` indicates that that these two variables are independent as the p-value is much higher than 0.05. We can safely accept the null hypothesis.
+
+```{r, results='markup'}
+adj <- pos2labels %>% 
+  filter(previous == 'ADJ') %>% 
+  select(session_id) %>% 
+  pull()
+
+by_ud <- fr_en_sessions %>% 
+  select(session_id, task_token_id, morph) %>% 
+  filter(session_id %in% sessions$session_id) %>% 
+  pivot_wider(names_from = "task_token_id",
+              values_from = "morph")
+
+ud2labels <- sessions %>% 
+  select(session_id, label) %>% 
+  cbind(
+    extract_trigrams(
+      by_ud %>% 
+        select(!session_id),
+     sessions$task_token_id))
+
+ud2labels <- ud2labels %>% 
+  select(1:3) %>% 
+  filter(session_id %in% adj) %>% 
+  select(session_id, label, previous) %>% 
+  separate_rows(previous, sep = "\\|") %>% 
+  separate(previous, into = c("feature", "value"), sep = "=")
+
+
+
+features <- ud2labels %>% 
+  pivot_wider(names_from = "feature",
+              values_from = "value")
+
+features %>% 
+  drop_na(Gender) %>% 
+  select(label, Gender) %>% 
+  table() %>% 
+  chisq.test()
+
+features %>% 
+  drop_na(Gender) %>% 
+  select(label, Gender) %>% 
+  table() %>% 
+  contingencyTableBF(sampleType = "poisson")
+```
+
+To be on the safe side, I used the Bayesian framework for confirmation. The result is the same - the odds for the alternative hypothesis against the null are about 0.59:1.
+
+
+
+2. The following are the results of the Chi^2 test for `Gender` feature in `VERB`
+
+indicates that that these two variables are independent as the p-value is much higher than 0.05. We can safely accept the null hypothesis.
+
+```{r, results='markup'}
+verb <- pos2labels %>% 
+  filter(previous == 'VERB') %>% 
+  select(session_id) %>% 
+  pull()
+
+by_ud <- fr_en_sessions %>% 
+  select(session_id, task_token_id, morph) %>% 
+  filter(session_id %in% sessions$session_id) %>% 
+  pivot_wider(names_from = "task_token_id",
+              values_from = "morph")
+
+ud2labels <- sessions %>% 
+  select(session_id, label) %>% 
+  cbind(
+    extract_trigrams(
+      by_ud %>% 
+        select(!session_id),
+     sessions$task_token_id))
+
+ud2labels <- ud2labels %>% 
+  select(1:3) %>% 
+  filter(session_id %in% adj) %>% 
+  select(session_id, label, previous) %>% 
+  separate_rows(previous, sep = "\\|") %>% 
+  separate(previous, into = c("feature", "value"), sep = "=")
+
+
+
+features <- ud2labels %>% 
+  pivot_wider(names_from = "feature",
+              values_from = "value")
+
+features %>% 
+  drop_na(Gender) %>% 
+  select(label, Gender) %>% 
+  table() %>% 
+  chisq.test()
+
+features %>% 
+  drop_na(Gender) %>% 
+  select(label, Gender) %>% 
+  table() %>% 
+  contingencyTableBF(sampleType = "poisson")
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```
+ 
+```
+
+
+```{r}
+
+```
+
+
 
 Let's analyse if any particular feature The following script is used to separate morphological features in the `morph` column:
 
 
+
 ```{r}
-fr_en_sessions %>%
-  filter(POS=='ADP') %>% 
-  separate_rows(morph, sep = "\\|") %>%
-  separate(morph, into = c("feature", "value"), sep = "=")
+
 ```
 
 
