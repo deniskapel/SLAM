@@ -1,7 +1,7 @@
 ---
 title: "Second Language Acquisition: Exploring Common Mistakes"
 author: "Denis Kapelyushnik^[HSE University, dmkapelyushnik@edu.hse.ru, https://github.com/deniskapel/SLAM]"
-abstract: "In 2018, a challenge on Second Language Acquisition Modeling was organised by Duolingo AI in conjunction with the 13th BEA Workshop and NAACL-HLT 2018 conference. One of the key findings of the challenge was the fact that a choice of a learning algorithm (for the task) appears to be more important than clever feature engineering. This research paper for the Linguistic Data: Quantitative Analysis and Visualisation course is aimed to explore if there is any correlation between certain available features and mistakes made while acquiring a foreign language."
+abstract: "In 2018, a challenge on Second Language Acquisition Modeling was organised by Duolingo AI in conjunction with the 13th BEA Workshop and NAACL-HLT 2018 conference. One of the key findings of the challenge was the fact that a choice of a learning algorithm (for the task) appears to be more important than clever feature engineering. This research paper for the Linguistic Data: Quantitative Analysis and Visualisation course is aimed to explore if any connection between certain available features and mistakes made while acquiring a foreign language exists."
 bibliography: references.bib
 output:
   pdf_document: default
@@ -125,12 +125,12 @@ fr_errors_by_country <- fr_en_md %>%
 fr_errors_by_country + fr_users
 ```
 
-The left side of the graph above demonstrates similarity in a number of mistakes per user (with their mean slightly below 50) in 10 most represented countries for a 30-day period. Based on this, it was decided to limit the data for the project to Top 4 most represented countries only to eliminate any additional factors (e.g. L1) that might have influence on second language acquisition (SLA). Users from `USA`, `Great Britain` and `Australia` are assumed to be native speakers of English. The same goes for `Canada` but it will be interesting to check if its bilingual status has any influence on SLA.
+The left side of the graph above demonstrates similarity in a number of mistakes per user (with their mean slightly below 50) in 10 most represented countries for a 30-day period. Based on this, it was decided to limit the data for the project to three countries from Top 4 most represented countries to eliminate any additional factors (e.g. L1) that might have influence on second language acquisition (SLA). Users from `Canada`, `Great Britain` and `Australia` are assumed to be native speakers of English. Additionally, it will be interesting to check if Canada' bilingual status has any influence on SLA. `USA` is removed from the project, mainly to save on computational resources - there are almost as many users from this country as from other three altogether. 
 
 ```{r}
 # filter the dataset to top 4 most represented countries
 fr_en_md <- fr_en_md %>% 
-  filter(country %in% c('CA', 'US', 'GB', 'AU'))
+  filter(country %in% c('CA', 'GB', 'AU'))
 
 fr_en_sessions <- fr_en_sessions %>% 
   filter(session_id %in% fr_en_md$session_id)
@@ -146,7 +146,7 @@ fr_en_md %>%
 
 Allegedly, all the users are beginners who are taking first steps in acquiring L2. Mostly, they start using the app actively but their engagement decreases over time.
 
-```{r, results='markup', fig.height=5, fig.width=10}
+```{r, results='markup', fig.height=3, fig.width=10}
 fr_en_md %>% 
   select(country, client, user_id, days) %>% 
   mutate(days = round(days)) %>% 
@@ -209,7 +209,7 @@ session_errors <- fr_en_md %>%
 session_types + session_errors
 ```
 
-It seems that learners are more careful when they see a new word or some unknown grammatical concept (`lesson`) than in situations when all the content is familiar to them (`practise`). In `test` sessions, a wider range in number of errors can be explained that both "experienced" and regular learners can take these tasks. In Section 3, I will concentrate on `practice` sessions to model users' mistake when having a "familiar" backgrounds.
+It seems that learners are more careful when they see a new word or some unknown grammatical concept (`lesson`) than in situations when all the content is familiar to them (`practise`). In `test` sessions, a wider range in number of errors can be explained that both "experienced" and regular learners can take these tasks. In Section 3, I will concentrate on `practice` sessions to model users' mistakes in a "familiar" background.
 
 ### 2.3. Tasks and common mistakes
 
@@ -247,7 +247,7 @@ pos_to_err_fr %>%
   theme_minimal()
 ```
 
-Top 3 most "erroneous" tags are `PUNCT`, `X`, `ADP`. The first UD tag refers to `-`, and this character is used in such questions as `Qui sont-ils?` or `Qu'a-t-il?`. The second question includes `t` character as well, which was tagged as `X`. Apparently, both cases, i.e. `PUNCT` and `X`, refer to word order issues as these mistakes happen in `reverse_tap` tasks more often than in the others.
+Top 3 most "erroneous" tags are `PUNCT`, `X`, `ADP`. The first UD tag refers to `-`, and this character is used in such questions as `Qui sont-ils?` or `Qu'a-t-il?`. The second question includes `t` character as well, which was tagged as `X`. Apparently, both cases, i.e. `PUNCT` and `X`, refer to word order issues as these mistakes happen a lot of the times in `reverse_tap` and `reverse_translate` tasks more often than in the others. Here, students have to input L2 sentences based on L1 prompts. In `listen` tasks, students can compare their input to the correct audio-prompt in L2.
 
 ```{r, results='markup'}
 fr_en_md %>% 
@@ -276,7 +276,7 @@ fr_en_sessions %>%
   knitr::kable(caption = 'Most common mistakes for the ADP tag')
 ```
 
-It is quite unexpected, that `De` and `D'` are in the top of the list. It might refer to such phrases as `D'accord` (OK) and `De rien` (Not at all). The problem is that, without seeing actual users' input, it is difficult to understand if a wrong word was used "deliberately" or the users submitted their answer by accident. To avoid any bias, it was decided to explore only the prepositions `de`, `à`, `avec`, `en`, `d'`, `chez` and `pour` in more details.
+It is quite unexpected, that `De` and `D'` are in the top of the list. It might refer to such phrases as `D'accord` (OK) and `De rien` (Not at all). The problem is that, without seeing actual users' input, it is difficult to understand if a wrong word was used "deliberately" or the users submitted their answer by accident. To avoid any bias, it was decided to explore only the prepositions `de`, `à`, `avec`, `en`, `comme` in more details.
 
 ```{r}
 extract_trigrams <- function(df, token_ids) {
@@ -305,7 +305,7 @@ diacritics <- fr_en_sessions %>%
 ```{r}
 # extract trigrams from sentences where there are such these prepositions
 sessions <- fr_en_sessions %>% 
-  filter(POS == 'ADP' & token %in% c('de', 'avec', 'en', "d'",  "chez", 'pour')| token == diacritics$token) %>% 
+  filter(POS == 'ADP' & token %in% c('de', 'avec', 'en',  "comme")| token == diacritics$token) %>% 
   select(session_id, token,task_token_id, label)
 
 # some sentences have two mistakes, but will look only the first one.
@@ -395,7 +395,7 @@ options(knitr.kable.NA = '')
 by_token %>% 
   inner_join(features %>% drop_na(Gender), by='session_id') %>% 
   select(2:7) %>% 
-  slice(102:104) %>% 
+  slice(34:36)%>% 
   knitr::kable(caption="Examples of sentences which contain a preposition after an adjective")
 ```
 
@@ -408,21 +408,7 @@ ud2labels %>%
   knitr::kable(caption="Feature distribution of ADJ", label="feature_distr")
 ```
 
-There are two binary features that we can use to for a Chi-squared test: `Gender` and `fPOS`. The first one is a "real" feature for the adjectives with two values: `Fem` and `Masc`. 
-
-I define the following null hypothesis - `There is no connection between Label and Gender`, and the alternative one would be `There is some correlation between them`. To test them, I applied Chi-squared test to these two variables.
-
-```{r, results='markup'}
-features %>% 
-  drop_na(Gender) %>% 
-  select(label, Gender) %>% 
-  table() %>% 
-  chisq.test()
-```
-
-Chi-squared test for `Gender` feature in `ADJ` indicates that the p-value is higher than 0.05, thus the null hypothesis cannot be rejected. Two variables are independent.
-
-The different situation happens with a `fake` adjective feature, `fPOS`. Its values are `ADJ++` and `VERB++`. The second group are the verbs, indeed. In fact, it is only one verb - `manger` (to eat) - in its `3^rd person singular` form.
+There is only one binary feature with a large number of examples that we can use, for example, in a Chi-squared test: `fPOS`. The problem is that it is a a `fake` adjective feature. Its values are `ADJ++` and `VERB++`. The second group are the verbs, indeed. In fact, it is only one verb - `manger` (to eat) - in its `3^rd person singular` form.
 
 ```{r, results='markup'}
 options(knitr.kable.NA = '')
@@ -430,44 +416,33 @@ options(knitr.kable.NA = '')
 by_token %>% 
   inner_join(features %>% filter(fPOS == 'VERB++') %>% drop_na(fPOS), by='session_id') %>% 
   select(2:9) %>% 
-  drop_na(4:6) %>% 
-  slice(1:2) %>% 
+  drop_na(4:6)%>% 
+  slice(27:30)%>%
   knitr::kable()
 ```
 
-I would use the same null and alternative hypotheses as before, but this time I will use `fPOS` as a feature:
 
-- H0: two variables are independent
-
-- Alternative: there is connection between mistakes and part of speech.
-
-```{r, results='markup'}
-features %>% 
-  drop_na(fPOS) %>% 
-  select(label, fPOS) %>% 
-  table() %>% 
-  chisq.test()
-```
-
-P-value is smaller than 0.05, so we can reject the null hypothesis and say that there is connection between these two variables. This conclusion makes it difficult to use morphological features for Second Language Acquisition Modeling performed in Chapter 3.
-
+As there are more `fake` adjectives than `real` ones, and such proportion of mistakes might cause problems for modeling. I decided not to use morphological features for Second Language Acquisition Modeling performed in Chapter 3. 
 
 ## 3. Second Language Acqusition Modelling
 
-And as stated above, I am reducing the dataset to the `practice` session format to make sure learners are already familiar with all the vocabulary and grammatical concepts. 
+As it was stated in Chapter 2.2, I am reducing the dataset to the `practice` session format to make sure learners are already familiar with all the vocabulary and grammatical concepts. 
 
 A quick summary of the features:
 
-1. On average, there are more mistakes in `reverse_translate` and `listen` tasks than in `reverse_tap`.
-2. Users have more problems with some tokens than with the others.
-3. Ngrams might be an extra feature but it is hardly possible to use UD tagging due to mistakes in it.
+1. On average, there are much more mistakes in `reverse_translate` and `listen` tasks than in `reverse_tap`.
+2. Users have more problems with some tokens than with the others (though, it is not always clear why).
+3. Previous and following tokens might be an extra feature but using UD tags seems to be unreliable.
 
 A few additional ideas that might be tested as factors for formulas in mixed-effect models:
+
 - task taken in the last decated of a 30-day period indicate that a user is commited to learn and might make less mistakes.
+
 - It is easier to do some tasks (e.g. `reverse_tap`) using mobile platforms than browsers.
+
 - It is easier to learn languages for some users than for the others.
 
-To test for mix-effects models, I will use `lme4` package for R and a join of two tables: `sessions' metadata` and features of each token. 
+To test for mix-effects models, I will use generalised mixed-effects modelling function from `lme4` package and a join of sessions' metadata and features of each token. 
 
 ``` {r, results='markup'}
 df_cols = c('session_id', 'user_id', 'country', 'days', 'client',
@@ -501,15 +476,15 @@ knitr::kable(data.frame(df_cols, description_df),
 
 ```{r}
 # # unncomment if file data/trigrams.csv does not exist
-# trigrams <- fr_en_sessions %>% 
+# trigrams <- fr_en_sessions %>%
 #   select(session_id, task_token_id, token) %>%
 #   pivot_wider(names_from = "task_token_id",
 #               values_from = "token") %>%
-#   group_by(session_id) %>% 
-#   unite(col = phrase, sep=" ", remove=FALSE) %>% 
-#   select(2,1) %>% 
-#   mutate(phrase = paste('NA', substring(phrase, 12), "NA")) %>% 
-#   unnest_tokens(ngram, phrase, token = "ngrams", n = 3, to_lower=FALSE) %>% 
+#   group_by(session_id) %>%
+#   unite(col = phrase, sep=" ", remove=FALSE) %>%
+#   select(2,1) %>%
+#   mutate(phrase = paste('NA', substring(phrase, 12), "NA")) %>%
+#   unnest_tokens(ngram, phrase, token = "ngrams", n = 3, to_lower=FALSE) %>%
 #   separate(ngram, into = c("previous", "token", 'following'), sep = " ", convert = TRUE)
 # 
 # trigrams <- trigrams[!with(trigrams,is.na(token) & is.na(following)),]
@@ -525,11 +500,11 @@ trigrams <- read_csv("data/trigrams.csv",
 
 ```{r}
 # # unncomment if file data/df.csv does not exist
-# df <- fr_en_sessions %>% 
-#   select(session_id, task_token_id, token, label) %>% 
-#   left_join(trigrams, by=c('session_id', 'token')) %>% 
-#   select(1,4,2,5,3,6) %>% 
-#   left_join(fr_en_md %>% 
+# df <- fr_en_sessions %>%
+#   select(session_id, task_token_id, token, label) %>%
+#   left_join(trigrams, by=c('session_id', 'token')) %>%
+#   select(1,4,2,5,3,6) %>%
+#   left_join(fr_en_md %>%
 #               select(session_id, user_id, country, days, client,
 #                      session, format, format,time, n_tokens), by='session_id')
 # 
@@ -559,192 +534,181 @@ df <- df %>%
 sum(!complete.cases(df))
 ```
 
-I will begin with a few generalized linear mixed effects models assuming there is a random effect from a token `+ (1|token)`, a user `+ (1|user_id)`, a previous token `+ (1|previous)` or the following one `+ (1|following)`. First, I will test formulas that include numerical variables only: `n_tokens`, `days` and `task_token_id`.
+In order to save on computational resources, I take only 1% of the data saving the share of `correct` and `incorrect` entries.
 
-- `Models 0-3`: label ~ n_tokens \* days \* task_token_id: the idea here is that the longer the sentence is, the more possibilities for mistake there are + further down the process of acquisition it is, the more committed the user is. If a token comes first, some mistakes happen by accident.
+```{r}
+# # uncomment if there is no data/sample_df.csv file.
+# sample_df <- df %>%
+#   slice_sample(prop = 0.01)
+# 
+# write_csv(sample_df, 'data/sample_df.csv', append = FALSE)
+```
 
 ```{r, result='markup'}
+sample_df <- read_csv("data/sample_df.csv", 
+                      col_types = cols('f','i','i',
+                                       'c','f','c',
+                                       'f','f','d',
+                                       'f','f','f',
+                                       'i','i'))
+
+
+sample_df %>% 
+  group_by(label) %>% 
+  summarise(n()) %>% 
+  left_join(df %>% 
+              select(label) %>%
+              group_by(label) %>% 
+              summarise(n()), by='label') %>% 
+  knitr::kable(col.names = c("Label", 'Sample', 'Total'),
+               align = c('c','r', 'r'),
+               caption = "Number of entries by label")
+```
+
+I will begin with a few generalized linear mixed effects models assuming there is a random effect from a token `+ (1|token)`, a user `+ (1|user_id)`, a previous token `+ (1|previous)` or the following one `+ (1|following)`, `+ (1|country)`. First, I will test formulas that include numerical variables only: `n_tokens`, `days` and `task_token_id`.
+
+- `Models 0-4`: label ~ n_tokens \* days \* task_token_id: the idea here is that the longer the sentence is, the more possibilities for mistake there are + further down the process of acquisition it is, the more committed the user is. If a token comes first, some mistakes happen by accident.
+
+```{r, echo=TRUE, result='markup'}
 lmer0 <- glmer(
   label~days*n_tokens*task_token_id + (1|token),
-  data=df, family = binomial)
+  data=sample_df, family = binomial)
 
 lmer1 <- glmer(
   label~days*n_tokens*task_token_id + (1|user_id),
-  data=df, family = binomial)
+  data=sample_df, family = binomial)
 
 lmer2 <- glmer(
   label~days*n_tokens*task_token_id + (1|previous),
-  data=df, family = binomial)
+  data=sample_df, family = binomial)
 
 lmer3 <- glmer(
   label~days*n_tokens*task_token_id + (1|following),
-  data=df, family = binomial)
+  data=sample_df, family = binomial)
+
+lmer4 <- glmer(
+  label~days*n_tokens*task_token_id + (1|country),
+  data=sample_df, family = binomial)
 ```
 
-```{r, echo=TRUE, results='markup'}
-anova(lmer0, lmer1, lmer2, lmer3)
-```
-
-It seems that `Model 0` with the random effect by token performs better than other three alternatives. I will now try to reduce the number of variables to simplify the model.
-
-```{r, echo=TRUE, result='markup'}
-summary(lmer0)
-```
-It seems that `task_token_id` can be removed from the model as well as `n_tokens` when used individually. I will also run another model that incorporates all four previously mentioned random effects. Model 6 is like model 4 but with a larger number of random effects.
+All of these models fail to converge as they are too complex. Further tests will use more simple models.
 
 ```{r, echo=TRUE, result='markup'}
 lmer4 <- glmer(
-  label~days + days:n_tokens + (1|token),
-  data=df, family = binomial)
+  label~days + (1|user_id),
+  data=sample_df, family = binomial)
 
 lmer5 <- glmer(
-  label~days*n_tokens*task_token_id + (1|token) + (1|user_id) + (1|previous) + (1|following),
-  data=df, family = binomial)
+  label~days + (1|token),
+  data=sample_df, family = binomial)
 
 lmer6 <- glmer(
-  label~days + days:n_tokens + (1|token) + (1|user_id) + (1|previous) + (1|following),
-  data=df, family = binomial)
+  label~days + (1|country),
+  data=sample_df, family = binomial)
 ```
 
 ```{r, results='markup'}
-anova(lmer0, lmer1, lmer2, lmer3, lmer4, lmer5, lmer6)
+anova(lmer4, lmer5, lmer6)
 ```
 
-Based on this comparison, it is possible to assume that random effects influence the quality of the model to the greater extend than fixed effects. Models below will test combinations of random effects
+All the models are very close and inefficient. Some improvement comes from a random effect by token itself but not enough.
+
+```{r, results='markup'}
+summary(lmer5)
+```
 
 ```{r, echo=TRUE, results='markup'}
 lmer7 <- glmer(
-  label~days + days:n_tokens + (1|token)+(1|user_id),
-  data=df, family = binomial)
+  label~n_tokens + (1|token),
+  data=sample_df, family = binomial)
 
 lmer8 <- glmer(
-  label~days + days:n_tokens + (1|previous)+(1|following),
-  data=df, family = binomial)
+  label~task_token_id + (1|token),
+  data=sample_df, family = binomial)
 
-
-anova(lmer5, lmer6, lmer7, lmer8)
+anova(lmer5, lmer7, lmer8)
 ```
 
-Model 5 and 6 has better AIC and BIC coefficients, but number 6 is `less complex`. It is now time to start testing categorical data with the same set of random effects.
+Same thing for other fixed factor, still inefficient. It is now time to start testing categorical data with the same set of random effects.
 
 ```{r, echo=TRUE, results='markup'}
 lmer9 <- glmer(
-  label~format*country*client + (1 | token) + (1 | user_id) + (1 | previous) + (1 | following),
-  data=df, family = binomial)
+  label~format + format:client + (1|token),
+  data=sample_df, family = binomial)
 
-summary(lmer9)
+lmer10 <- glmer(
+  label~format + format:client + (1|user_id),
+  data=sample_df, family = binomial)
+
+lmer11 <- glmer(
+  label~format + format:client + (1|country),
+  data=sample_df, family = binomial)
+
+anova(lmer5, lmer9, lmer10, lmer11)
 ```
-The model is too compex and before comparing it to the previous best, I am training a simplified one, removing `country`, `client`, `country:client` and `format:country:client` factors from it.
+Model 9 `label ~ format + format:client + (1 | token)` looks more promising, yet it is still inefficient.
 
 ```{r, echo=TRUE, results='markup'}
-lmer10 <- glmer(
-  label~format+format:client + format:country + (1 | token) + (1 | user_id) + (1 | previous) + (1 | following),
-  data=df, family = binomial)
-
-anova(lmer6, lmer9, lmer10)
+summary(lmer9)
 ```
-
-It seems that using categorical variables to predict mistakes is more efficient that numerical as both complex and simplified models have smaller `AIC` and `BIC` coefficients. Probably, some improvement can be extracted from combining categorical and numerical variables, i.e. `Model 6` + `Model 10`.
+Probably, some improvement can be extracted from combining categorical and numerical variables.
 
 ```{r, echo=TRUE, results='markup'}
 lmer11 <- glmer(
-  label ~ days + days:n_tokens + 
-    format+format:client + format:country + 
-    (1 | token) + (1 | user_id) + (1 | previous) + (1 | following),
-  data=df, family = binomial)
+  label ~ days + format + (1 | token),
+  data=sample_df, family = binomial)
 
+lmer12 <- glmer(
+  label ~ days + format + (1|user_id),
+  data=sample_df, family = binomial)
+
+lmer13 <- glmer(
+  label ~ days + format + (1|country),
+  data=sample_df, family = binomial)
+
+anova(lmer11, lmer12, lmer13)
+```
+
+```{r, result='markup'}
 summary(lmer11)
 ```
 
-There is some room for simplification, so I will create another model, removing `format:country` from it.
-
-
-```{r, echo=TRUE, results='markup'}
-lmer12 <- glmer(
-  label ~ days + days:n_tokens + 
-    format+format:client + 
-    (1 | token) + (1 | user_id) + (1 | previous) + (1 | following),
-  data=df, family = binomial)
-
-
-anova(lmer12, lmer11, lmer10)
-```
-
-`Model 12` seems to be only a little worse, but its number of parameters is much smaller, thus it is more efficient.
-
-It is time to update a random effect in it, for example adding `(1 + format|token)` relation, i.e. certain tasks are more prone to mistakes if they are learned via the following mistakes.
+This set of feature does not provide any imporvement as well. For now and based on Chapter 2.3, it seems that choosing `correct` when a task format is `reverse_tap` is the most promising approach. Especially if grouped by the position of a token in a sentence.
 
 ```{r, echo=TRUE, results='markup'}
-lmer13 <- glmer(
-  label ~ days + days:n_tokens + 
-    format+format:client + 
-    (1 + format|token) + (1 | user_id) + (1 | previous) + (1 | following),
-  data=df, family = binomial)
-
-lmer14 <- glmer(
-  label ~ days + days:n_tokens + 
-    format+format:client + (1 + format|token),
-  data=df, family = binomial)
-
-lmer15 <- glmer(
-  label ~ n_tokens + (1 + format|token),
-  data=df, family = binomial)
-
-anova(lmer12, lmer13,lmer14, lmer15)
-```
-
-`Model 13` seems to be the best for now, and there is nothing to remove from it.
-
-```{r, echo=TRUE, results='markup'}
-summary(lmer13)
-```
-
-In order to use any of these models for learning analytics, random effects with focus on `users` should be added to it.
-
-```{r, echo=TRUE, results='markup'}
-lmer16 <- glmer(
-  label ~ days + days:n_tokens + 
-    format+format:client + 
-    (1 |token) + (1 + format| user_id) + (1 | previous) + (1 | following),
-  data=df, family = binomial)
-
 lmer17 <- glmer(
-  label ~ days + days:n_tokens + 
-    format+format:client + (1 + task_token_id|user_id),
-  data=df, family = binomial)
+  label ~ format + 
+    (1 + task_token_id|token),
+  data=sample_df, family = binomial)
 
 lmer18 <- glmer(
-  label ~ n_tokens + (1 + days|user_id),
-  data=df, family = binomial)
+  label ~ n_tokens + 
+    (1 + task_token_id|token),
+  data=sample_df, family = binomial)
 
-anova(lmer13, lmer16, lmer17, lmer18)
+anova(lmer17, lmer18)
 ```
-
-Model 13 and 16 seem to have close AIC and BIC results, and the difference between them is that first groups token and format while the second works with users and format. The second parameter remains a random effect.
 
 ```{r, echo=TRUE, results='markup'}
-lmer19 <- glmer(
-  label ~ days + days:n_tokens + 
-    format+format:client + 
-    (1 + format |token) + (1 + format| user_id) + (1 | previous) + (1 | following),
-  data=df, family = binomial)
-
-anova(lmer13, lmer16, lmer19)
+summary(lmer17)
 ```
 
+This feature might be useful to identify some accidental mistakes (see Chapter 2.3 on prepositions `De` and `D'`) but does not bring much to learning analytics.
 
 ## Conclusion
 
-The project was aimed to explore if any features have a stronger effect on `mistake`/ `correct` classification. While analysing the dataset, I removed UD features due to problems with tags. After I described the fatures, I applied mixed-effects modelling to find out if any features or their combinations can be used to predict the label.
+The project was aimed to explore if any available features have a stronger effect on `mistake`/ `correct` classification. While analysing the dataset, I removed UD features due to problems with tags. After I described the features, I applied generalised mixed-effects modeling to find out if any features or their combinations can be used to predict the label. The results of the experiments did not result in any meaningful feature set, and perhaps some additional synthesised features, e.g. `ngram frequency`, might be used in further experiments. Data sampling was applied mainly to save on computational resources, and as soon as some feature set is defined, it is possible to test it on larger dataset.
 
-Below, I desribe features that were found to be meaningful and attempt to explain why:
-- `days` - (fixed) the longer users study, the more committed they are (more attentive)
-- `days:n_tokens` - Tasks' difficulty gradually increases, and it is possible that shorter sentences become easier with practice.
-- `format` - average number of mistakes for `reverse_tap` tasks is three times as small as for the others.
-- `format:client` - some tasks might be easier to do using cellphones rather than laptops or computers.
+Below, there are features that I attempted to test during the experiments and alternative hypotheses for them:
 
-The following random effects were added to the model as well: `by token`, `by user`, `by previous token` and `by following token`. The first and the second feature can be 
+* `days` - (fixed) the longer users study, the more committed they are (more attentive)
 
-In order to test it against
+* `days:n_tokens` - Tasks' difficulty gradually increases, and it is possible that shorter sentences become easier with practice.
+
+* `format` - average number of mistakes for `reverse_tap` tasks is three times as small as for the others.
+
+* `format:client` - some tasks might be easier to do using cellphones rather than laptops or computers.
+
+The following random effects were added to the model as well: `by token`, `by user`, `by country`. Their combination makes models too complex. 
 
 ## References
