@@ -534,35 +534,34 @@ df <- df %>%
 sum(!complete.cases(df))
 ```
 
-In order to save on computational resources, I take only 1% of the data saving the share of `correct` and `incorrect` entries.
+In order to save on computational resources, I take only 10% of the data saving the share of `correct` and `incorrect` entries.
 
 ```{r}
 # # uncomment if there is no data/sample_df.csv file.
 # sample_df <- df %>%
-#   slice_sample(prop = 0.01)
+#   slice_sample(prop = 0.1)
 # 
 # write_csv(sample_df, 'data/sample_df.csv', append = FALSE)
-```
 
-```{r, result='markup'}
 sample_df <- read_csv("data/sample_df.csv", 
                       col_types = cols('f','i','i',
                                        'c','f','c',
                                        'f','f','d',
                                        'f','f','f',
                                        'i','i'))
+```
 
 
+
+```{r, results='markup'}
 sample_df %>% 
   group_by(label) %>% 
-  summarise(n()) %>% 
+  summarise(Sample = n()) %>% 
   left_join(df %>% 
               select(label) %>%
               group_by(label) %>% 
-              summarise(n()), by='label') %>% 
-  knitr::kable(col.names = c("Label", 'Sample', 'Total'),
-               align = c('c','r', 'r'),
-               caption = "Number of entries by label")
+              summarise(Dataset = n()), by='label') %>% 
+  knitr::kable(caption="Distribution of correct and incorrect entries")
 ```
 
 I will begin with a few generalized linear mixed effects models assuming there is a random effect from a token `+ (1|token)`, a user `+ (1|user_id)`, a previous token `+ (1|previous)` or the following one `+ (1|following)`, `+ (1|country)`. First, I will test formulas that include numerical variables only: `n_tokens`, `days` and `task_token_id`.
@@ -611,11 +610,13 @@ lmer6 <- glmer(
 anova(lmer4, lmer5, lmer6)
 ```
 
-All the models are very close and inefficient. Some improvement comes from a random effect by token itself but not enough.
+All the models are very close and inefficient. 
 
-```{r, results='markup'}
+```{r, echo=TRUE, results='markup'}
 summary(lmer5)
 ```
+
+Some improvement comes from a random effect by token itself but not enough.
 
 ```{r, echo=TRUE, results='markup'}
 lmer7 <- glmer(
@@ -646,7 +647,7 @@ lmer11 <- glmer(
 
 anova(lmer5, lmer9, lmer10, lmer11)
 ```
-Model 9 `label ~ format + format:client + (1 | token)` looks more promising, yet it is still inefficient.
+Even a slightly more complex model like `label ~ format + format:client + (1 | token)` fail to converge.
 
 ```{r, echo=TRUE, results='markup'}
 summary(lmer9)
@@ -669,11 +670,7 @@ lmer13 <- glmer(
 anova(lmer11, lmer12, lmer13)
 ```
 
-```{r, result='markup'}
-summary(lmer11)
-```
-
-This set of feature does not provide any imporvement as well. For now and based on Chapter 2.3, it seems that choosing `correct` when a task format is `reverse_tap` is the most promising approach. Especially if grouped by the position of a token in a sentence.
+This set of feature does not provide much improvement. For now and based on Chapter 2.3, it seems that choosing `correct` when a task format is `reverse_tap` is the most promising approach. Especially if grouped by the position of a token in a sentence.
 
 ```{r, echo=TRUE, results='markup'}
 lmer17 <- glmer(
