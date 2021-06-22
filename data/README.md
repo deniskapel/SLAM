@@ -17,7 +17,7 @@ use the following instructions.
 
 NB: Check if `codebase/awk_metadata`, `codebase/awk_sessions` and `preprocess_data` files are executable. If not, run `chmod +x <fileName>` and re-run Step 2
 
-Only `train` split is being analysed using the Null Hypothesis Significance Testing framework, `dev` and `test` are removed.
+Only `train` split is being analysed, `dev` and `test` are removed.
 
 References
 
