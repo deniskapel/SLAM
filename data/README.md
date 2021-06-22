@@ -13,8 +13,9 @@ use the following instructions.
     ./preprocess_data
 ```
 
-NB: Check if `codebase/awk_metadata`, `codebase/awk_sessions` and `preprocess_data` files are executable. If not, run `chmod +x <fileName>` and re-run Step 2
+3. It is possible to skip the first two steps if you wish to reproduce only experiments with glmer models. For this, only files `df.csv`, `sample_df.csv` and `trigrams.csv` are necessary.
 
+NB: Check if `codebase/awk_metadata`, `codebase/awk_sessions` and `preprocess_data` files are executable. If not, run `chmod +x <fileName>` and re-run Step 2
 
 Only `train` split is being analysed using the Null Hypothesis Significance Testing framework, `dev` and `test` are removed.
 

@@ -5,3 +5,5 @@ The project is aimed to analyse the data collected for the [2018 Duolingo Shared
 This project for the Linguistic Data: Quantitative Analysis and Visualisation course is aimed to explore if certain features have any influence on making a mistake during the process of SLA and thus be used to predict potential errors.
 
 The work is following the license spefified for the challenge dataset, namely [Creative Commons Attribution-NonCommercial 4.0 International License (CC BY-NC 4.0)](https://creativecommons.org/choose/results-one?license_code=by-nc&amp;jurisdiction=&amp;version=4.0&amp;lang=en).
+
+To reproduce the project completely, first read instructions in the [data](/data) folder.
