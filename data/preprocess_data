@@ -12,11 +12,3 @@ rm data_fr_en.tar.gz
 ./codebase/awk_metadata < fr_en/fr_en.slam.20190204.train > fr_en_metadata.csv
 ./codebase/awk_sessions < fr_en/fr_en.slam.20190204.train > fr_en_sessions.csv
 rm -r fr_en
-
-# English learners speaking Spanish
-mkdir es_en
-tar -xvzf data_es_en.tar.gz -C es_en
-rm data_es_en.tar.gz
-./codebase/awk_metadata < es_en/es_en.slam.20190204.train > es_en_metadata.csv
-./codebase/awk_sessions < es_en/es_en.slam.20190204.train > es_en_sessions.csv
-rm -r es_en
